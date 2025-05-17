@@ -1,10 +1,7 @@
 {
   "dependencies": {
     "moment-timezone": "^0.5.45",
-<<<<<<< HEAD
     "puppeteer": "^24.8.2",
-=======
->>>>>>> d21069f98ba890752de89e57022dc8d382346715
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.28.0"
   }

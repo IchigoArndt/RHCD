@@ -2,13 +2,7 @@
 const qrcode = require('qrcode-terminal');
 const { Client, Buttons, List, MessageMedia } = require('whatsapp-web.js'); // Mudança Buttons
 
-const client = new Client({
-    puppeteer: {
-        executablePath: 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
-});
+const client = new Client();
 
 // serviço de leitura do qr code
 client.on('qr', qr => {
@@ -48,7 +42,7 @@ client.on('message', async msg => {
     if (msg.body !== null && msg.body === '1' && msg.from.endsWith('@c.us')) {
         const chat = await msg.getChat();
 
-        await delay(1000); //delay de 3 segundos
+        //await delay(1000); //delay de 3 segundos
         await chat.sendStateTyping(); // Simulando Digitação
         await delay(1000);
         await client.sendMessage(msg.from, 'Para verificar os eventos que estão ocorrendo, acesse nossa página web: https://www.orionparque.com');
