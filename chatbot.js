@@ -1,7 +1,7 @@
 // leitor de qr code
 const qrcode = require('qrcode-terminal');
 const { Client, Buttons, List, MessageMedia } = require('whatsapp-web.js'); // Mudança Buttons
-
+const fs = require('fs');
 const client = new Client();
 
 // serviço de leitura do qr code
@@ -50,7 +50,33 @@ client.on('message', async msg => {
     }
 
     if (msg.body !== null && msg.body === '2' && msg.from.endsWith('@c.us')) {
+        
         const chat = await msg.getChat();
+        const idsDasSalas = obterTodosOsIds();
+        await chat.sendStateTyping();
+        await delay(1000);
+        await client.sendMessage(msg.from, "Nosso prédio abriga as seguintes salas: ");
+
+        let mensagemFinal = '';
+
+        for (const id of idsDasSalas) {
+        let sala = buscarSalaPorId(id);
+        await delay(1000);
+
+        if (sala) {
+            mensagemFinal += 'Nome: ' + sala.nome + ' (ID: ' + sala.id + ')\n' +
+                            'Capacidade: ' + sala.capacidade + '\n' +
+                            'Valor por hora: R$' + sala.valorPorHora + '/h\n' +
+                            'Taxa de limpeza: R$' + sala.taxaLimpeza + '\n' +
+                            'Desconto: ' + sala.desconto + '\n\n';
+            }
+        }
+
+        if (mensagemFinal) 
+        {
+            console.log(mensagemFinal);
+            await client.sendMessage(msg.from, mensagemFinal);
+        }
 
     }
 
@@ -59,3 +85,24 @@ client.on('message', async msg => {
 
     }
 });
+
+// Função para buscar uma sala por ID
+function buscarSalaPorId(id) {
+  // Ler o arquivo JSON
+  const dados = fs.readFileSync('salas.json', 'utf-8');
+
+  // Converter o conteúdo para um objeto JavaScript
+  const salas = JSON.parse(dados);
+
+  // Buscar a sala pelo ID
+  const salaEncontrada = salas.find(sala => sala.id === id);
+
+  // Retornar a sala encontrada ou uma mensagem caso não exista
+  return salaEncontrada ? salaEncontrada : `Sala com ID ${id} não encontrada.`;
+}
+
+function obterTodosOsIds() {
+  const dados = fs.readFileSync('salas.json', 'utf-8');
+  const salas = JSON.parse(dados);
+  return salas.map(sala => sala.id);
+}

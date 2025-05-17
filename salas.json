@@ -1,0 +1,74 @@
+[
+  {
+    "id": 103,
+    "nome": "Sala de Reunião",
+    "capacidade": 8,
+    "valorPorHora": 40,
+    "taxaLimpeza": 0,
+    "desconto": "Residentes SEM CUSTO"
+  },
+  {
+    "id": 108,
+    "nome": "Sala de Reunião",
+    "capacidade": 12,
+    "valorPorHora": 50,
+    "taxaLimpeza": 0,
+    "desconto": "Residentes SEM CUSTO"
+  },
+  {
+    "id": 114,
+    "nome": "Sala de Reunião",
+    "capacidade": 8,
+    "valorPorHora": 40,
+    "taxaLimpeza": 0,
+    "desconto": "Residentes SEM CUSTO"
+  },
+  {
+    "id": 212,
+    "nome": "Sala do SerraLab",
+    "capacidade": 30,
+    "valorPorHora": 40,
+    "taxaLimpeza": 0,
+    "desconto": "Residentes"
+  },
+  {
+    "id": 214,
+    "nome": "Sala do Podcast",
+    "capacidade": 35,
+    "valorPorHora": 80,
+    "taxaLimpeza": 100,
+    "desconto": "70%"
+  },
+  {
+    "id": 1,
+    "nome": "Auditório",
+    "capacidade": 75,
+    "valorPorHora": 100,
+    "taxaLimpeza": 100,
+    "desconto": "Sem Desconto"
+  },
+  {
+    "id": 2,
+    "nome": "Auditório",
+    "capacidade": 75,
+    "valorPorHora": 100,
+    "taxaLimpeza": 100,
+    "desconto": "Desconto para empresas incubadas Residentes: 70%"
+  },
+  {
+    "id": 3,
+    "nome": "Auditório",
+    "capacidade": 75,
+    "valorPorHora": 100,
+    "taxaLimpeza": 100,
+    "desconto": "Desconto para empresas incubadas Residentes: 70%"
+  },
+  {
+    "id": 4,
+    "nome": "Auditório",
+    "capacidade": 75,
+    "valorPorHora": 100,
+    "taxaLimpeza": 100,
+    "desconto": "Desconto para empresas incubadas Residentes: 70%"
+  }
+]
