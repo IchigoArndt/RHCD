@@ -42,9 +42,9 @@ client.on('message', async msg => {
     if (msg.body !== null && msg.body === '1' && msg.from.endsWith('@c.us')) {
         const chat = await msg.getChat();
 
-        //await delay(1000); //delay de 3 segundos
+        //await delay(1000); //delay de 2 segundos
         await chat.sendStateTyping(); // Simulando Digitação
-        await delay(1000);
+        await delay(2000);
         await client.sendMessage(msg.from, 'Para verificar os eventos que estão ocorrendo, acesse nossa página web: https://www.orionparque.com');
 
     }
@@ -82,7 +82,9 @@ client.on('message', async msg => {
 
     if (msg.body !== null && msg.body === '3' && msg.from.endsWith('@c.us')) {
         const chat = await msg.getChat();
-
+        await chat.sendStateTyping(); // Simulando Digitação
+        await delay(2000);
+        await client.sendMessage(msg.from, 'Certo, estamos transferindo você para um atendente. Por favor, aguarde um momento.');
     }
 });
 
