@@ -1,0 +1,11 @@
+[build]
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[deploy.volumeMounts]]
+mountPath = "/app/.wwebjs_auth"

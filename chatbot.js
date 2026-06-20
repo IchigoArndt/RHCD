@@ -1,234 +1,126 @@
-const qrcode = require('qrcode-terminal');
-const { Client } = require('whatsapp-web.js');
-const fs = require('fs');
+require('dotenv').config();
 
-const client = new Client();
-const userStatus = new Map(); // Tracks conversation state for each user
-const userContext = new Map(); // Stores additional context for each user
-
-// Helper functions
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
-// Service initialization
-client.on('qr', qr => {
-    qrcode.generate(qr, { small: true });
+process.on('uncaughtException', (err) => {
+    console.error('[uncaughtException]', err.message);
 });
 
+process.on('unhandledRejection', (reason) => {
+    console.error('[unhandledRejection]', reason && reason.message ? reason.message : reason);
+});
+
+process.on('exit', (code) => {
+    console.error('[exit] código:', code);
+});
+
+process.on('SIGTERM', () => { console.error('[SIGTERM]'); process.exit(0); });
+process.on('SIGINT', () => { console.error('[SIGINT]'); process.exit(0); });
+
+const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode');
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const fs = require('fs');
+const path = require('path');
+
+// Remove locks do Chrome de sessões anteriores
+const sessionDir = path.join(__dirname, '.wwebjs_auth', 'session');
+['SingletonLock', 'SingletonSocket', 'SingletonCookie'].forEach(f => {
+    try { fs.unlinkSync(path.join(sessionDir, f)); } catch (_) {}
+});
+const express = require('express');
+
+const PORT = process.env.PORT || 3000;
+
+const client = new Client({
+    authStrategy: new LocalAuth({ dataPath: '.wwebjs_auth' }),
+    authTimeoutMs: 120000,
+    webVersion: '2.3000.1041832074',
+    webVersionCache: {
+        type: 'local',
+        path: '.wwebjs_cache',
+    },
+    puppeteer: {
+        executablePath: process.env.CHROME_PATH ||
+            '/usr/bin/chromium' ||
+            '/home/ichigoarndt/.cache/puppeteer/chrome/linux-136.0.7103.92/chrome-linux64/chrome',
+        protocolTimeout: 300000,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--disable-gpu'
+        ]
+    }
+});
+
+client.on('qr', async qr => {
+    qrcode.generate(qr, { small: true });
+    const url = await QRCode.toDataURL(qr);
+    console.log('QR Code gerado. Escaneie com o WhatsApp para autenticar.');
+    console.log('Ou acesse: http://localhost:3000/qr para ver a imagem.');
+    global._lastQR = url;
+});
+
+let clientReady = false;
+
 client.on('ready', () => {
-    console.log('WhatsApp client is ready!');
+    clientReady = true;
+    console.log('WhatsApp client pronto!');
+});
+
+client.on('auth_failure', msg => {
+    console.error('Falha na autenticacao WhatsApp:', msg);
 });
 
 client.initialize();
 
-// Data functions
-function getRoomById(id) {
-    const data = fs.readFileSync('salas.json', 'utf-8');
-    const rooms = JSON.parse(data);
-    return rooms.find(room => room.id === id) || null;
-}
+const app = express();
+app.use(express.json());
 
-function getAllRoomIds() {
-    const data = fs.readFileSync('salas.json', 'utf-8');
-    const rooms = JSON.parse(data);
-    return rooms.map(room => room.id);
-}
+// POST /webhook/send
+// Body: { "to": "5511999999999", "message": "Texto da mensagem" }
+app.post('/webhook/send', async (req, res) => {
+    const { to, message } = req.body;
 
-// Conversation handlers
-async function handleWelcome(userId, name) {
-    await client.sendMessage(
-        userId,
-        `Olá, ${name}! Somos do Orion Parque. Como posso ajudá-lo hoje?\n\n` +
-        '1 - Checar Evento\n' +
-        '2 - Checar Agenda\n' +
-        '3 - Falar com atendente'
-    );
-    userStatus.set(userId, 'AWAITING_OPTION');
-}
-
-async function handleEventCheck(userId) {
-    await client.sendMessage(
-        userId,
-        'Para verificar os eventos que estão ocorrendo, acesse nossa página web:\n' +
-        'https://www.orionparque.com\n\n' +
-        'Posso ajudar em algo mais?\n' +
-        '1 - Voltar ao menu\n' +
-        '2 - Encerrar'
-    );
-    userStatus.set(userId, 'POST_EVENT_CHECK');
-}
-
-async function handleRoomList(userId) {
-    const roomIds = getAllRoomIds();
-    let message = 'Nosso prédio abriga as seguintes salas:\n\n';
-
-    for (const id of roomIds) {
-        const room = getRoomById(id);
-        if (room) {
-            message += `*${room.nome}* (ID: ${room.id})\n` +
-                `Capacidade: ${room.capacidade}\n` +
-                `Valor por hora: R$ ${room.valorPorHora}/h\n` +
-                `Taxa de limpeza: R$ ${room.taxaLimpeza}\n` +
-                `Desconto: ${room.desconto}\n\n`;
-        }
+    if (!to || !message) {
+        return res.status(400).json({ error: 'Os campos "to" e "message" sao obrigatorios.' });
     }
 
-    message += 'Caso tenha interesse, qual tipo de sala deseja agendar?\n\n' +
-        '1 - Sala de Reunião ou PodCast\n' +
-        '2 - Sala de Auditório ou SerraLab\n' +
-        '3 - Voltar ao menu\n' +
-        '4 - Encerrar';
-
-    await client.sendMessage(userId, message);
-    userStatus.set(userId, 'ROOM_SELECTION');
-}
-
-async function handleRoomSelection(userId, option) {
-    switch (option) {
-        case '1':
-            await client.sendMessage(
-                userId,
-                'Para agendar uma Sala de Reunião ou PodCast, acesse:\n' +
-                'https://forms.gle/US6KSCpuSVxo7hsy9\n\n' +
-                'Posso ajudar em algo mais?\n' +
-                '1 - Voltar ao menu\n' +
-                '2 - Encerrar'
-            );
-            userStatus.set(userId, 'POST_ROOM_SELECTION');
-            break;
-        case '2':
-            await client.sendMessage(
-                userId,
-                'Para agendar uma Sala de Auditório ou SerraLab, acesse:\n' +
-                'plid.in/seueventonoorion\n\n' +
-                'Posso ajudar em algo mais?\n' +
-                '1 - Voltar ao menu\n' +
-                '2 - Encerrar'
-            );
-            userStatus.set(userId, 'POST_ROOM_SELECTION');
-            break;
-        case '3':
-            await handleWelcome(userId, userContext.get(userId)?.name || 'usuário');
-            break;
-        case '4':
-            await endConversation(userId);
-            break;
-        default:
-            await client.sendMessage(userId, 'Opção inválida. Por favor, escolha 1, 2, 3 ou 4.');
+    if (!clientReady) {
+        return res.status(503).json({ error: 'WhatsApp client ainda não está pronto.' });
     }
-}
 
-async function handleAttendantTransfer(userId) {
-    await client.sendMessage(
-        userId,
-        'Estamos transferindo você para um atendente. Por favor, aguarde um momento...\n\n' +
-        'Se precisar de mais alguma coisa, é só chamar. Tenha um ótimo dia!'
-    );
-    userStatus.delete(userId);
-    userContext.delete(userId);
-}
-
-async function endConversation(userId) {
-    await client.sendMessage(
-        userId,
-        'Obrigado por entrar em contato com o Orion Parque! Se precisar de mais alguma coisa, é só chamar. Tenha um ótimo dia!'
-    );
-    userStatus.delete(userId);
-    userContext.delete(userId);
-}
-
-// Main message handler
-client.on('message', async msg => {
-    const userId = msg.from;
-
-    // Ignore group messages and non-contacts
-    if (!userId.endsWith('@c.us')) return;
+    const number = to.replace(/\D/g, '');
 
     try {
-        const chat = await msg.getChat();
-        const contact = await msg.getContact();
-        const name = contact.pushname?.split(' ')[0] || 'usuário';
-
-        // Store user context if not already present
-        if (!userContext.has(userId)) {
-            userContext.set(userId, { name });
+        const numberId = await client.getNumberId(number);
+        if (!numberId) {
+            return res.status(404).json({ error: `Número ${number} não encontrado no WhatsApp.` });
         }
-
-        const currentStatus = userStatus.get(userId) || 'INITIAL';
-        const message = msg.body.trim().toLowerCase();
-
-        // Handle initial greeting
-        if (currentStatus === 'INITIAL' && /^(oi|ola|olá|iniciar|começar)$/i.test(message)) {
-            await chat.sendStateTyping();
-            await delay(800);
-            await handleWelcome(userId, name);
-            return;
-        }
-
-        // Main conversation flow
-        switch (currentStatus) {
-            case 'AWAITING_OPTION':
-                await chat.sendStateTyping();
-                await delay(800);
-
-                if (message === '1') {
-                    await handleEventCheck(userId);
-                } else if (message === '2') {
-                    await handleRoomList(userId);
-                } else if (message === '3') {
-                    await handleAttendantTransfer(userId);
-                } else {
-                    await client.sendMessage(
-                        userId,
-                        'Opção inválida. Por favor, escolha:\n\n' +
-                        '1 - Checar Evento\n' +
-                        '2 - Checar Agenda\n' +
-                        '3 - Falar com atendente'
-                    );
-                }
-                break;
-
-            case 'ROOM_SELECTION':
-                await chat.sendStateTyping();
-                await delay(800);
-                await handleRoomSelection(userId, message);
-                break;
-
-            case 'POST_EVENT_CHECK':
-            case 'POST_ROOM_SELECTION':
-                await chat.sendStateTyping();
-                await delay(800);
-
-                if (message === '1') {
-                    await handleWelcome(userId, name);
-                } else if (message === '2') {
-                    await endConversation(userId);
-                } else {
-                    await client.sendMessage(
-                        userId,
-                        'Opção inválida. Por favor, escolha:\n\n' +
-                        '1 - Voltar ao menu\n' +
-                        '2 - Encerrar'
-                    );
-                }
-                break;
-
-            default:
-                if (/^(oi|ola|olá|iniciar|começar)$/i.test(message)) {
-                    await chat.sendStateTyping();
-                    await delay(800);
-                    await handleWelcome(userId, name);
-                } else {
-                    await client.sendMessage(
-                        userId,
-                        `Olá ${name}! Digite "oi" para começar.`
-                    );
-                }
-        }
-    } catch (error) {
-        console.error('Error handling message:', error);
-        await client.sendMessage(
-            userId,
-            'Desculpe, ocorreu um erro. Por favor, tente novamente mais tarde.'
-        );
+        await client.sendMessage(numberId._serialized, message);
+        console.log(`Mensagem enviada para ${numberId._serialized}`);
+        return res.json({ success: true, to: numberId._serialized });
+    } catch (err) {
+        console.error('Erro ao enviar mensagem:', err);
+        return res.status(500).json({ error: 'Falha ao enviar mensagem via WhatsApp.' });
     }
+});
+
+app.get('/qr', (_req, res) => {
+    if (!global._lastQR) return res.send('<html><head><meta http-equiv="refresh" content="3"/></head><body style="background:#000;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh"><p>Aguardando QR Code...</p></body></html>');
+    res.send(`<html><head><meta http-equiv="refresh" content="15"/></head><body style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:#000;color:#fff;font-family:sans-serif">
+        <p style="margin-bottom:16px">Escaneie com o WhatsApp</p>
+        <img src="${global._lastQR}" style="width:300px;height:300px"/>
+        <p style="margin-top:16px;font-size:12px;opacity:0.5">Atualiza automaticamente a cada 15s</p>
+    </body></html>`);
+});
+
+app.get('/health', (_req, res) => {
+    res.json({ status: 'ok' });
+});
+
+app.listen(PORT, () => {
+    console.log(`Servidor webhook rodando na porta ${PORT}`);
 });

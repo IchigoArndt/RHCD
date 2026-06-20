@@ -1,8 +1,14 @@
 {
+  "scripts": {
+    "start": "node chatbot.js"
+  },
   "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "moment-timezone": "^0.5.45",
     "puppeteer": "^24.8.2",
+    "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.28.0"
+    "whatsapp-web.js": "^1.34.7"
   }
 }
