@@ -27,8 +27,13 @@ const sessionDir = path.join(__dirname, '.wwebjs_auth', 'session');
     try { fs.unlinkSync(path.join(sessionDir, f)); } catch (_) {}
 });
 const express = require('express');
+const cors = require('cors');
 
 const PORT = process.env.PORT || 3000;
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://hachathorion2026-production-a3e0.up.railway.app')
+    .split(',')
+    .map(o => o.trim());
 
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: '.wwebjs_auth' }),
@@ -77,6 +82,10 @@ client.on('auth_failure', msg => {
 client.initialize();
 
 const app = express();
+app.use(cors({
+    origin: ALLOWED_ORIGINS,
+    methods: ['GET', 'POST'],
+}));
 app.use(express.json());
 
 // POST /webhook/send
